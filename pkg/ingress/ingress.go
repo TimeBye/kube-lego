@@ -53,7 +53,7 @@ func IgnoreIngress(ing *k8sExtensions.Ingress) error {
 func New(client kubelego.KubeLego, namespace string, name string) *Ingress {
 	ingress := &Ingress{
 		Exists:   true,
-		kubelego: client,
+		Kubelego: client,
 	}
 
 	var err error
@@ -89,7 +89,7 @@ func All(client kubelego.KubeLego) (ingresses []kubelego.Ingress, err error) {
 			&Ingress{
 				IngressApi: &ingSlice.Items[i],
 				Exists:     true,
-				kubelego:   client,
+				Kubelego:   client,
 			},
 		)
 	}
@@ -101,11 +101,11 @@ var _ kubelego.Ingress = &Ingress{}
 type Ingress struct {
 	IngressApi *k8sExtensions.Ingress
 	Exists     bool
-	kubelego   kubelego.KubeLego
+	Kubelego   kubelego.KubeLego
 }
 
 func (i *Ingress) Log() *logrus.Entry {
-	log := i.kubelego.Log().WithField("context", "ingress")
+	log := i.Kubelego.Log().WithField("context", "ingress")
 
 	if i.IngressApi != nil && i.IngressApi.Name != "" {
 		log = log.WithField("name", i.IngressApi.Name)
@@ -117,7 +117,7 @@ func (i *Ingress) Log() *logrus.Entry {
 }
 
 func (o *Ingress) client() k8sExtensionsTyped.IngressInterface {
-	return o.kubelego.KubeClient().Extensions().Ingresses(o.IngressApi.Namespace)
+	return o.Kubelego.KubeClient().Extensions().Ingresses(o.IngressApi.Namespace)
 }
 
 func (o *Ingress) Save() (err error) {
@@ -167,7 +167,7 @@ func (i *Ingress) Object() *k8sExtensions.Ingress {
 func (i *Ingress) IngressClass() string {
 	val, ok := i.IngressApi.Annotations[kubelego.AnnotationIngressClass]
 	if !ok {
-		return i.kubelego.LegoDefaultIngressClass()
+		return i.Kubelego.LegoDefaultIngressClass()
 	}
 	return strings.ToLower(val)
 }
@@ -179,7 +179,7 @@ func (i *Ingress) IngressProvider() string {
 		if class == "gce" || class == "nginx" {
 			return class
 		} else {
-			return i.kubelego.LegoDefaultIngressProvider()
+			return i.Kubelego.LegoDefaultIngressProvider()
 		}
 	}
 	return strings.ToLower(val)
@@ -192,7 +192,7 @@ func (i *Ingress) Ignore() bool {
 		return true
 	}
 
-	_, err = IsSupportedIngressClass(i.kubelego.LegoSupportedIngressClass(), i.IngressClass())
+	_, err = IsSupportedIngressClass(i.Kubelego.LegoSupportedIngressClass(), i.IngressClass())
 	if err != nil {
 		i.Log().Info("ignoring as ", err)
 		return true
@@ -202,7 +202,7 @@ func (i *Ingress) Ignore() bool {
 }
 
 func (i *Ingress) KubeLego() kubelego.KubeLego {
-	return i.kubelego
+	return i.Kubelego
 }
 
 func (i *Ingress) Tls() (out []kubelego.Tls) {

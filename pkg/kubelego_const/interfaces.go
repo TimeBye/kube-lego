@@ -38,6 +38,7 @@ type KubeLego interface {
 	Version() string
 	AcmeUser() (map[string][]byte, error)
 	SaveAcmeUser(map[string][]byte) error
+	Reconfigure(Ingress) error
 }
 
 type Acme interface {

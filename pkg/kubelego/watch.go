@@ -87,7 +87,7 @@ func (kl *KubeLego) WatchReconfigure() {
 					return
 				}
 				// attempt to process the ingress
-				err = kl.reconfigure(ing)
+				err = kl.Reconfigure(ing)
 				if err != nil {
 					kl.Log().Errorf("worker: error processing item, requeuing after rate limit: %v", err)
 					// we requeue the item and skip calling Forget here to ensure

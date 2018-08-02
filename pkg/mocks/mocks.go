@@ -47,6 +47,13 @@ func (m *MockKubeLego) KubeClient() *kubernetes.Clientset {
 	return ret0
 }
 
+// Ingress mocks base method
+func (m *MockKubeLego) Reconfigure(ing kubelego.Ingress) error {
+	ret := m.ctrl.Call(m, "Ingress")
+	ret0, _ := ret[0].(*kubelego.Ingres)
+	return ret0
+}
+
 // KubeClient indicates an expected call of KubeClient
 func (mr *MockKubeLegoMockRecorder) KubeClient() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KubeClient", reflect.TypeOf((*MockKubeLego)(nil).KubeClient))

@@ -12,6 +12,9 @@ import (
 	"github.com/jetstack/kube-lego/pkg/utils"
 
 	"github.com/Sirupsen/logrus"
+	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sExtensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"github.com/jetstack/kube-lego/pkg/ingress"
 )
 
 func New(kubeLego kubelego.KubeLego) *Acme {
@@ -66,6 +69,9 @@ func (a *Acme) Mux() *http.ServeMux {
 		fmt.Fprint(w, a.id)
 	})
 
+	mux.HandleFunc("/enableCert", a.enableCert)
+	mux.HandleFunc("/createCert", a.createCert)
+
 	// enable pprof in debug mode
 	if logrus.GetLevel() == logrus.DebugLevel {
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -75,6 +81,90 @@ func (a *Acme) Mux() *http.ServeMux {
 	}
 
 	return mux
+}
+
+func (a *Acme) createCert(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	r.ParseForm()
+	host := strings.TrimLeft(strings.TrimRight(r.Form.Get("hosts"), ","), ",")
+	hosts := strings.Split(host, ",")
+	if len(host) == 0 || len(hosts) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, fmt.Sprintf("hosts: %s invalid", host))
+		return
+	}
+	namespace := r.Form.Get("namespace")
+	if len(namespace) == 0 {
+		namespace = k8sMeta.NamespaceDefault
+	}
+	ing := ingress.New(a.kubelego, namespace, "choerodon")
+	// 添加注解
+	annotations := make(map[string]string)
+	annotations[kubelego.AnnotationEnabled] = "true"
+	ing.IngressApi.SetAnnotations(annotations)
+	for _, v := range hosts {
+		ing.IngressApi.Spec.Rules = append(ing.IngressApi.Spec.Rules, k8sExtensions.IngressRule{
+			Host: v,
+		})
+	}
+	secretName := r.Form.Get("secretName")
+	if len(secretName) == 0 {
+		secretName = hosts[0] + "-cert"
+	}
+	ing.IngressApi.Spec.TLS = append(ing.IngressApi.Spec.TLS, k8sExtensions.IngressTLS{
+		Hosts:      hosts,
+		SecretName: secretName,
+	})
+	err := a.kubelego.Reconfigure(ing)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	return
+}
+
+func (a *Acme) enableCert(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	r.ParseForm()
+	namespace := r.Form.Get("namespace")
+	ingressName := r.Form.Get("ingressName")
+	IngressApi, err := a.kubelego.KubeClient().ExtensionsV1beta1().Ingresses(namespace).Get(ingressName, k8sMeta.GetOptions{})
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, err.Error())
+		return
+	}
+	// 添加注解
+	annotations := IngressApi.GetAnnotations()
+	annotations[kubelego.AnnotationEnabled] = "true"
+	annotations["choerodon.io/tls-acme"] = "true"
+	IngressApi.SetAnnotations(annotations)
+	// 添加tls
+	var hosts []string
+	for _, v := range IngressApi.Spec.Rules {
+		hosts = append(hosts, v.Host)
+	}
+	tls := append(IngressApi.Spec.TLS, k8sExtensions.IngressTLS{
+		Hosts:      hosts,
+		SecretName: ingressName + "-cert",
+	})
+	IngressApi.Spec = k8sExtensions.IngressSpec{
+		Backend: IngressApi.Spec.Backend,
+		Rules:   IngressApi.Spec.Rules,
+		TLS:     tls,
+	}
+	_, err = a.kubelego.KubeClient().Ingresses(namespace).Update(IngressApi)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	return
 }
 
 func (a *Acme) handleChallenge(w http.ResponseWriter, r *http.Request) {

@@ -76,14 +76,14 @@ func TestIngress_Provider(t *testing.T) {
 	// ing with no annotations
 	ingNo := &Ingress{
 		IngressApi: &k8sExtensions.Ingress{},
-		kubelego:   mockKL,
+		Kubelego:   mockKL,
 	}
 	assert.Equal(t, "default-provider", ingNo.IngressProvider())
 
 	// ing with class gce|nginx annotations
 	ingClass := &Ingress{
 		IngressApi: &k8sExtensions.Ingress{},
-		kubelego:   mockKL,
+		Kubelego:   mockKL,
 	}
 
 	ingClass.IngressApi.Annotations = map[string]string{

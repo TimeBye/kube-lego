@@ -76,7 +76,7 @@ func (kl *KubeLego) processProvider(ing kubelego.Ingress) (err error) {
 	return utilerrors.NewAggregate(errs)
 }
 
-func (kl *KubeLego) reconfigure(ing kubelego.Ingress) error {
+func (kl *KubeLego) Reconfigure(ing kubelego.Ingress) error {
 	if ing.Ignore() {
 		return nil
 	}
